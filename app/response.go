@@ -15,11 +15,6 @@ func NewResponse(code int) *Response {
 	return &Response{code: code, headers: make(map[string]string)}
 }
 
-// func (res *Response) addHeader(name string, value string) *Response {
-// 	res.headers[name] = value
-// 	return res
-// }
-
 func (res *Response) addTextBody(value string) *Response {
 	res.body = []byte(value)
 	res.headers["Content-Type"] = "text/plain"
