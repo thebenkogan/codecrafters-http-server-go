@@ -1,8 +1,11 @@
 package main
 
 import (
+	"fmt"
+	"io"
 	"log"
 	"net"
+	"strings"
 )
 
 func main() {
@@ -21,15 +24,57 @@ func main() {
 	}
 }
 
+var codeToMsg = map[int]string{
+	200: "OK",
+	404: "Not Found",
+}
+
+func buildResponse(code int) string {
+	return fmt.Sprintf("HTTP/1.1 %d %s\r\n\r\n", code, codeToMsg[code])
+}
+
+type Request struct {
+	method  string
+	path    string
+	version string
+	headers map[string]string
+}
+
+func strToRequest(input string) *Request {
+	lines := strings.Split(input, "\r\n")
+	startLine := strings.Split(lines[0], " ")
+
+	headers := make(map[string]string)
+	for _, line := range lines[2:] {
+		split := strings.Split(line, ": ")
+		headers[split[0]] = split[1]
+	}
+
+	return &Request{
+		method:  startLine[0],
+		path:    startLine[1],
+		version: startLine[2],
+		headers: headers,
+	}
+}
+
 func handleRequest(conn net.Conn) {
 	defer conn.Close()
 
-	buf := make([]byte, 1024)
-	if _, err := conn.Read(buf); err != nil {
+	buf, err := io.ReadAll(conn)
+	if err != nil {
 		log.Panic("Failed to read", err)
 	}
+	req := strToRequest(string(buf))
 
-	if _, err := conn.Write([]byte("HTTP/1.1 200 OK\r\n\r\n")); err != nil {
+	var response string
+	if req.path == "/" {
+		response = buildResponse(200)
+	} else {
+		response = buildResponse(404)
+	}
+
+	if _, err := conn.Write([]byte(response)); err != nil {
 		log.Panic("Failed to write", err)
 	}
 }
