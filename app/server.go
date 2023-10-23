@@ -3,26 +3,24 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"io"
 	"log"
 	"net"
 	"os"
-	"strings"
 )
 
 const port int = 4221
 
-type Server struct {
+type State struct {
 	fileDir string
 }
 
 func main() {
-	server := Server{}
+	state := State{}
 
 	args := os.Args
 	if len(args) > 1 && args[1] == "--directory" {
-		server.fileDir = args[2]
-		fmt.Println("Using directory", server.fileDir)
+		state.fileDir = args[2]
+		fmt.Println("Using directory", state.fileDir)
 	}
 
 	l, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", port))
@@ -38,50 +36,41 @@ func main() {
 		if err != nil {
 			log.Panic("Error accepting connection: ", err.Error())
 		}
-		go server.handleRequest(conn)
+		go handleRequest(&state, conn)
 	}
 }
 
-func (s *Server) handleRequest(conn net.Conn) {
+var router = map[string]map[string](func(state *State, req *Request) *Response){
+	"": {
+		"GET": Home,
+	},
+	"echo": {
+		"GET": Echo,
+	},
+	"user-agent": {
+		"GET": UserAgent,
+	},
+	"files": {
+		"GET":  GetFile,
+		"POST": PostFile,
+	},
+}
+
+func handleRequest(state *State, conn net.Conn) {
 	defer conn.Close()
 
 	fmt.Println("Connection received")
 
-	scanner := bufio.NewScanner(conn)
-	scanner.Split(bufio.ScanLines)
-	lines := make([]string, 0)
-	for scanner.Scan() {
-		if text := scanner.Text(); text != "" {
-			lines = append(lines, text)
-		} else {
-			break
-		}
-	}
+	reader := bufio.NewReader(conn)
+	req := ReadRequest(reader)
 
-	fmt.Println("Request:", strings.Join(lines, ", "))
+	fmt.Println("Request:", req)
 
-	req := ParseRequest(lines)
-	pathParts := strings.Split(req.path, "/")[1:]
-
+	handler, ok := router[req.path[0]][req.method]
 	var response *Response
-	switch pathParts[0] {
-	case "":
-		response = NewResponse(200)
-	case "echo":
-		response = NewResponse(200).addTextBody(strings.Join(pathParts[1:], "/"))
-	case "user-agent":
-		response = NewResponse(200).addTextBody(req.headers["User-Agent"])
-	case "files":
-		fileName := pathParts[1]
-		file, err := os.Open(s.fileDir + "/" + fileName)
-		if os.IsNotExist(err) {
-			response = NewResponse(404)
-		} else {
-			defer file.Close()
-			buffer, _ := io.ReadAll(file)
-			response = NewResponse(200).attachFile(buffer)
-		}
-	default:
+	if ok {
+		response = handler(state, req)
+	} else {
 		response = NewResponse(404)
 	}
 

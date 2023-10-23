@@ -1,29 +1,47 @@
 package main
 
-import "strings"
+import (
+	"bufio"
+	"io"
+	"strconv"
+	"strings"
+)
 
 type Request struct {
 	method  string
-	path    string
+	path    []string
 	version string
 	headers map[string]string
+	body    []byte
 }
 
-func ParseRequest(lines []string) *Request {
-	startLine := strings.Split(lines[0], " ")
+func ReadRequest(reader *bufio.Reader) *Request {
+	res := &Request{headers: make(map[string]string)}
 
-	headers := make(map[string]string)
-	for _, line := range lines[1:] {
-		if line != "" {
+	for {
+		line, _ := reader.ReadString(byte('\n'))
+		line = strings.TrimSuffix(line, "\r\n")
+		if res.method == "" {
+			// reading first line
+			startLine := strings.Split(line, " ")
+			res.method = startLine[0]
+			res.path = strings.Split(startLine[1], "/")[1:]
+			res.version = startLine[2]
+		} else if line != "" {
+			// reading header
 			split := strings.Split(line, ": ")
-			headers[split[0]] = split[1]
+			res.headers[split[0]] = split[1]
+		} else {
+			// reading blank line, might be a body after this
+			if lengthStr, ok := res.headers["Content-Length"]; ok {
+				length, _ := strconv.Atoi(lengthStr)
+				body := make([]byte, length)
+				io.ReadFull(reader, body)
+				res.body = body
+			}
+			break
 		}
 	}
 
-	return &Request{
-		method:  startLine[0],
-		path:    startLine[1],
-		version: startLine[2],
-		headers: headers,
-	}
+	return res
 }
