@@ -1,21 +1,23 @@
 package main
 
 import (
-	"fmt"
+	"log"
 	"net"
-	"os"
 )
 
 func main() {
 	l, err := net.Listen("tcp", "0.0.0.0:4221")
 	if err != nil {
-		fmt.Println("Failed to bind to port 4221")
-		os.Exit(1)
+		log.Panic("Failed to bind to port 4221")
 	}
 
-	_, err = l.Accept()
+	conn, err := l.Accept()
 	if err != nil {
-		fmt.Println("Error accepting connection: ", err.Error())
-		os.Exit(1)
+		log.Panic("Error accepting connection: ", err.Error())
 	}
+
+	buf := make([]byte, 0)
+	conn.Read(buf)
+
+	conn.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
 }
