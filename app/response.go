@@ -8,7 +8,7 @@ import (
 type Response struct {
 	code    int
 	headers map[string]string
-	body    string
+	body    []byte
 }
 
 func NewResponse(code int) *Response {
@@ -21,9 +21,16 @@ func NewResponse(code int) *Response {
 // }
 
 func (res *Response) addTextBody(value string) *Response {
-	res.body = value
+	res.body = []byte(value)
 	res.headers["Content-Type"] = "text/plain"
 	res.headers["Content-Length"] = fmt.Sprint(len(value))
+	return res
+}
+
+func (res *Response) attachFile(buffer []byte) *Response {
+	res.body = buffer
+	res.headers["Content-Type"] = "application/octet-stream"
+	res.headers["Content-Length"] = fmt.Sprint(len(buffer))
 	return res
 }
 
@@ -41,8 +48,8 @@ func (res *Response) toString() string {
 		lines = append(lines, fmt.Sprintf("%s: %s", key, value))
 	}
 
-	if res.body != "" {
-		lines = append(lines, "", res.body)
+	if res.body != nil {
+		lines = append(lines, "", string(res.body))
 	}
 
 	return strings.Join(lines, "\r\n") + "\r\n\r\n"
