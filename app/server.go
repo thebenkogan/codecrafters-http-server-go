@@ -81,6 +81,8 @@ func handleRequest(conn net.Conn) {
 		response = NewResponse(200)
 	case "echo":
 		response = NewResponse(200).addTextBody(strings.Join(pathParts[1:], "/"))
+	case "user-agent":
+		response = NewResponse(200).addTextBody(req.headers["User-Agent"])
 	default:
 		response = NewResponse(404)
 	}
