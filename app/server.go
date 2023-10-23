@@ -1,8 +1,8 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
-	"io"
 	"log"
 	"net"
 	"strings"
@@ -30,7 +30,6 @@ var codeToMsg = map[int]string{
 }
 
 func buildResponse(code int) string {
-	fmt.Println(code, codeToMsg[code])
 	return fmt.Sprintf("HTTP/1.1 %d %s\r\n\r\n", code, codeToMsg[code])
 }
 
@@ -41,18 +40,16 @@ type Request struct {
 	headers map[string]string
 }
 
-func strToRequest(input string) *Request {
-	lines := strings.Split(input, "\r\n")
+func strToRequest(lines []string) *Request {
 	startLine := strings.Split(lines[0], " ")
 
 	headers := make(map[string]string)
-	// fmt.Println(lines, len(lines), input, startLine)
-	// for _, line := range lines[1:] {
-	// 	if line != "" {
-	// 		split := strings.Split(line, ": ")
-	// 		headers[split[0]] = split[1]
-	// 	}
-	// }
+	for _, line := range lines[1:] {
+		if line != "" {
+			split := strings.Split(line, ": ")
+			headers[split[0]] = split[1]
+		}
+	}
 
 	return &Request{
 		method:  startLine[0],
@@ -65,14 +62,18 @@ func strToRequest(input string) *Request {
 func handleRequest(conn net.Conn) {
 	defer conn.Close()
 
-	buf, err := io.ReadAll(conn)
-	if err != nil {
-		log.Panic("Failed to read", err)
+	s := bufio.NewScanner(conn)
+	s.Split(bufio.ScanLines)
+	lines := make([]string, 0)
+	for s.Scan() {
+		if text := s.Text(); text != "" {
+			lines = append(lines, text)
+		} else {
+			break
+		}
 	}
-	fmt.Println("burh???")
-	req := strToRequest(string(buf))
-	fmt.Println(req)
-	fmt.Println(req.path == "/")
+
+	req := strToRequest(lines)
 
 	var response string
 	if req.path == "/" {
@@ -80,9 +81,6 @@ func handleRequest(conn net.Conn) {
 	} else {
 		response = buildResponse(404)
 	}
-	fmt.Println("here", response)
 
-	if _, err := conn.Write([]byte(response)); err != nil {
-		log.Panic("Failed to write", err)
-	}
+	conn.Write([]byte(response))
 }
