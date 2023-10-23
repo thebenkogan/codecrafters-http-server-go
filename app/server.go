@@ -8,12 +8,16 @@ import (
 	"strings"
 )
 
+const port int = 4221
+
 func main() {
-	l, err := net.Listen("tcp", "0.0.0.0:4221")
+	l, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", port))
 	if err != nil {
-		log.Panic("Failed to bind to port 4221")
+		log.Panic("Failed to bind to port", port)
 	}
 	defer l.Close()
+
+	fmt.Println("Listening on port", port)
 
 	for {
 		conn, err := l.Accept()
@@ -24,15 +28,6 @@ func main() {
 	}
 }
 
-var codeToMsg = map[int]string{
-	200: "OK",
-	404: "Not Found",
-}
-
-func buildResponse(code int) string {
-	return fmt.Sprintf("HTTP/1.1 %d %s\r\n\r\n", code, codeToMsg[code])
-}
-
 type Request struct {
 	method  string
 	path    string
@@ -40,7 +35,7 @@ type Request struct {
 	headers map[string]string
 }
 
-func strToRequest(lines []string) *Request {
+func parseRequest(lines []string) *Request {
 	startLine := strings.Split(lines[0], " ")
 
 	headers := make(map[string]string)
@@ -62,6 +57,8 @@ func strToRequest(lines []string) *Request {
 func handleRequest(conn net.Conn) {
 	defer conn.Close()
 
+	fmt.Println("Connection received")
+
 	s := bufio.NewScanner(conn)
 	s.Split(bufio.ScanLines)
 	lines := make([]string, 0)
@@ -73,14 +70,22 @@ func handleRequest(conn net.Conn) {
 		}
 	}
 
-	req := strToRequest(lines)
+	fmt.Println("Request:", strings.Join(lines, ", "))
 
-	var response string
-	if req.path == "/" {
-		response = buildResponse(200)
-	} else {
-		response = buildResponse(404)
+	req := parseRequest(lines)
+	pathParts := strings.Split(req.path, "/")[1:]
+
+	var response *Response
+	switch pathParts[0] {
+	case "":
+		response = NewResponse(200)
+	case "echo":
+		response = NewResponse(200).addTextBody(pathParts[1])
+	default:
+		response = NewResponse(404)
 	}
 
-	conn.Write([]byte(response))
+	resStr := response.toString()
+	fmt.Println("Responding:", resStr)
+	conn.Write([]byte(resStr))
 }
