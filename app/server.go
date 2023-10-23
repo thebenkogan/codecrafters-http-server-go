@@ -30,6 +30,7 @@ var codeToMsg = map[int]string{
 }
 
 func buildResponse(code int) string {
+	fmt.Println(code, codeToMsg[code])
 	return fmt.Sprintf("HTTP/1.1 %d %s\r\n\r\n", code, codeToMsg[code])
 }
 
@@ -45,10 +46,13 @@ func strToRequest(input string) *Request {
 	startLine := strings.Split(lines[0], " ")
 
 	headers := make(map[string]string)
-	for _, line := range lines[2:] {
-		split := strings.Split(line, ": ")
-		headers[split[0]] = split[1]
-	}
+	// fmt.Println(lines, len(lines), input, startLine)
+	// for _, line := range lines[1:] {
+	// 	if line != "" {
+	// 		split := strings.Split(line, ": ")
+	// 		headers[split[0]] = split[1]
+	// 	}
+	// }
 
 	return &Request{
 		method:  startLine[0],
@@ -65,7 +69,10 @@ func handleRequest(conn net.Conn) {
 	if err != nil {
 		log.Panic("Failed to read", err)
 	}
+	fmt.Println("burh???")
 	req := strToRequest(string(buf))
+	fmt.Println(req)
+	fmt.Println(req.path == "/")
 
 	var response string
 	if req.path == "/" {
@@ -73,6 +80,7 @@ func handleRequest(conn net.Conn) {
 	} else {
 		response = buildResponse(404)
 	}
+	fmt.Println("here", response)
 
 	if _, err := conn.Write([]byte(response)); err != nil {
 		log.Panic("Failed to write", err)
