@@ -80,7 +80,7 @@ func handleRequest(conn net.Conn) {
 	case "":
 		response = NewResponse(200)
 	case "echo":
-		response = NewResponse(200).addTextBody(pathParts[1])
+		response = NewResponse(200).addTextBody(strings.Join(pathParts[1:], "/"))
 	default:
 		response = NewResponse(404)
 	}
