@@ -10,14 +10,26 @@ func main() {
 	if err != nil {
 		log.Panic("Failed to bind to port 4221")
 	}
+	defer l.Close()
 
-	conn, err := l.Accept()
-	if err != nil {
-		log.Panic("Error accepting connection: ", err.Error())
+	for {
+		conn, err := l.Accept()
+		if err != nil {
+			log.Panic("Error accepting connection: ", err.Error())
+		}
+		go handleRequest(conn)
+	}
+}
+
+func handleRequest(conn net.Conn) {
+	defer conn.Close()
+
+	buf := make([]byte, 1024)
+	if _, err := conn.Read(buf); err != nil {
+		log.Panic("Failed to read", err)
 	}
 
-	buf := make([]byte, 0)
-	conn.Read(buf)
-
-	conn.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
+	if _, err := conn.Write([]byte("HTTP/1.1 200 OK\r\n\r\n")); err != nil {
+		log.Panic("Failed to write", err)
+	}
 }
